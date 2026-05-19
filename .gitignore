@@ -22,7 +22,12 @@ node_modules
 dist
 
 # garmin credentials
+# garmin credentials
 garmin.config.json
+# local credential file (not committed)
+config/local-config.json
+# persisted oauth tokens
+garmin.tokens.json
 
 # tests
 test

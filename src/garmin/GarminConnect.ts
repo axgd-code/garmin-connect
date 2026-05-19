@@ -1,13 +1,27 @@
-import appRoot from 'app-root-path';
+// Import Obsidian types only if available
+let obsidianApp: any;
+let normalizePath: (path: string) => string;
 
-import FormData from 'form-data';
-import _ from 'lodash';
-import { DateTime } from 'luxon';
-import * as fs from 'fs';
-import * as path from 'path';
-import { HttpClient } from '../common/HttpClient';
-import { checkIsDirectory, createDirectory, writeToFile } from '../utils';
+try {
+    const obsidian = require('obsidian');
+    obsidianApp = obsidian.App;
+    normalizePath = obsidian.normalizePath;
+} catch (e) {
+    // Obsidian not available - provide fallbacks
+    obsidianApp = class {};
+    normalizePath = (path: string) => path;
+}
+
+// Type alias for compatibility
+type App = typeof obsidianApp;
+
 import { UrlClass } from './UrlClass';
+import {
+    HttpClient,
+    HttpClientConfig,
+    TokenPersistence
+} from '../common/HttpClient';
+import { Cache } from '../common/Cache';
 import {
     ExportFileTypeValue,
     GCUserHash,
@@ -21,18 +35,23 @@ import {
     IUserSettings,
     IWorkout,
     IWorkoutDetail,
-    UploadFileType,
-    UploadFileTypeTypeValue
+    UploadFileTypeTypeValue,
+    WeightData,
+    Weight,
+    HeartRate
 } from './types';
+
 import Running from './workouts/Running';
 import {
     calculateTimeDifference,
     getLocalTimestamp,
     toDateString
 } from './common/DateUtils';
+
 import { SleepData } from './types/sleep';
 import { gramsToPounds } from './common/WeightUtils';
 import { convertMLToOunces, convertOuncesToML } from './common/HydrationUtils';
+
 import {
     ActivitySubType,
     ActivityType,
@@ -40,122 +59,143 @@ import {
     IActivity
 } from './types/activity';
 
-let config: GCCredentials | undefined = undefined;
-
-try {
-    config = appRoot.require('/garmin.config.json');
-} catch (e) {
-    // Do nothing
-}
-
-export type EventCallback<T> = (data: T) => void;
+/* ---------------------------------------------------------
+   Types
+--------------------------------------------------------- */
 
 export interface GCCredentials {
     username: string;
     password: string;
 }
-export interface Listeners {
-    [event: string]: EventCallback<any>[];
+
+export interface GarminConnectConfig {
+    headers?: Record<string, string>;
+    httpClientConfig?: HttpClientConfig;
+    tokenPersistence?: TokenPersistence;
 }
 
-export enum Event {
-    sessionChange = 'sessionChange'
-}
-
-export interface Session {}
+/* ---------------------------------------------------------
+   GarminConnect (Mobile-safe)
+--------------------------------------------------------- */
 
 export default class GarminConnect {
-    client: HttpClient;
-    private _userHash: GCUserHash | undefined;
+    private readonly client: HttpClient;
+    private readonly url: UrlClass;
     private credentials: GCCredentials;
-    private listeners: Listeners;
-    private url: UrlClass;
-    // private oauth1: OAuth;
+
+    // Cache for user profile (5 minutes TTL)
+    private profileCache = new Cache<ISocialProfile>(5 * 60 * 1000);
+
+    // Cache for daily data (1 hour TTL) - steps, weight, heart rate, sleep
+    // Key format: "type:YYYY-MM-DD"
+    private dailyCache = new Cache<any>(60 * 60 * 1000);
+
     constructor(
-        credentials: GCCredentials | undefined = config,
-        domain: GarminDomain = 'garmin.com'
+        credentials: GCCredentials,
+        domain: GarminDomain = 'garmin.com',
+        config?: GarminConnectConfig
     ) {
-        if (!credentials) {
-            throw new Error('Missing credentials');
-        }
+        if (!credentials) throw new Error('Missing credentials');
+
         this.credentials = credentials;
         this.url = new UrlClass(domain);
-        this.client = new HttpClient(this.url);
-        this._userHash = undefined;
-        this.listeners = {};
+        this.client = new HttpClient(this.url, {
+            ...config?.httpClientConfig,
+            tokenPersistence: config?.tokenPersistence
+        });
+        if (config?.headers) {
+            this.client.setCommonHeader(config.headers);
+        }
     }
 
-    async login(username?: string, password?: string): Promise<GarminConnect> {
-        if (username && password) {
-            this.credentials.username = username;
-            this.credentials.password = password;
-        }
+    /* ----------------------------------------------------- */
+    async login(): Promise<this> {
         await this.client.login(
             this.credentials.username,
             this.credentials.password
         );
+        this.profileCache.clear();
         return this;
     }
-    exportTokenToFile(dirPath: string): void {
-        if (!checkIsDirectory(dirPath)) {
-            createDirectory(dirPath);
-        }
-        // save oauth1 to json
-        if (this.client.oauth1Token) {
-            writeToFile(
-                path.join(dirPath, 'oauth1_token.json'),
-                JSON.stringify(this.client.oauth1Token)
-            );
-        }
-        if (this.client.oauth2Token) {
-            writeToFile(
-                path.join(dirPath, 'oauth2_token.json'),
-                JSON.stringify(this.client.oauth2Token)
-            );
-        }
-    }
-    loadTokenByFile(dirPath: string): void {
-        if (!checkIsDirectory(dirPath)) {
-            throw new Error('loadTokenByFile: Directory not found: ' + dirPath);
-        }
-        let oauth1Data = fs.readFileSync(
-            path.join(dirPath, 'oauth1_token.json')
-        ) as unknown as string;
-        const oauth1 = JSON.parse(oauth1Data);
-        this.client.oauth1Token = oauth1;
 
-        let oauth2Data = fs.readFileSync(
-            path.join(dirPath, 'oauth2_token.json')
-        ) as unknown as string;
-        const oauth2 = JSON.parse(oauth2Data);
-        this.client.oauth2Token = oauth2;
+    /* ----------------------------------------------------- */
+    async exportTokenToVault(app: App, dir: string): Promise<void> {
+        const base = normalizePath(dir);
+        const vault = app.vault;
+
+        if (!(await vault.adapter.exists(base))) {
+            await vault.createFolder(base);
+        }
+
+        if (this.client.oauth1Token) {
+            await vault.adapter.write(
+                `${base}/oauth1_token.json`,
+                JSON.stringify(this.client.oauth1Token, null, 2)
+            );
+        }
+
+        if (this.client.oauth2Token) {
+            await vault.adapter.write(
+                `${base}/oauth2_token.json`,
+                JSON.stringify(this.client.oauth2Token, null, 2)
+            );
+        }
     }
+
+    async loadTokenFromVault(app: App, dir: string): Promise<void> {
+        const base = normalizePath(dir);
+        const vault = app.vault;
+
+        const oauth1 = `${base}/oauth1_token.json`;
+        const oauth2 = `${base}/oauth2_token.json`;
+
+        if (await vault.adapter.exists(oauth1)) {
+            this.client.oauth1Token = JSON.parse(
+                await vault.adapter.read(oauth1)
+            );
+        }
+
+        if (await vault.adapter.exists(oauth2)) {
+            this.client.oauth2Token = JSON.parse(
+                await vault.adapter.read(oauth2)
+            );
+        }
+
+        if (!this.client.oauth1Token && !this.client.oauth2Token) {
+            throw new Error('No token found');
+        }
+    }
+
     exportToken(): IGarminTokens {
         if (!this.client.oauth1Token || !this.client.oauth2Token) {
-            throw new Error('exportToken: Token not found');
+            throw new Error('Missing tokens');
         }
         return {
             oauth1: this.client.oauth1Token,
             oauth2: this.client.oauth2Token
         };
     }
-    // from db or localstorage etc
-    loadToken(oauth1: IOauth1Token, oauth2: IOauth2Token): void {
-        this.client.oauth1Token = oauth1;
-        this.client.oauth2Token = oauth2;
-    }
 
-    async getUserSettings(): Promise<IUserSettings> {
-        return this.client.get<IUserSettings>(this.url.USER_SETTINGS);
-    }
+    /* ----------------------------------------------------- */
+    async getUserProfile(force = false): Promise<ISocialProfile> {
+        if (!force) {
+            const cached = this.profileCache.get('profile');
+            if (cached) {
+                return cached;
+            }
+        }
 
-    async getUserProfile(): Promise<ISocialProfile> {
-        return this.client.get<ISocialProfile>(this.url.USER_PROFILE);
+        const profile = await this.client.get<ISocialProfile>(
+            this.url.USER_PROFILE
+        );
+
+        this.profileCache.set('profile', profile);
+        return profile;
     }
 
     async getActivities(
-        start?: number,
-        limit?: number,
+        start = 0,
+        limit = 20,
         activityType?: ActivityType,
         subActivityType?: ActivitySubType
     ): Promise<IActivity[]> {
@@ -164,389 +204,138 @@ export default class GarminConnect {
         });
     }
 
-    async getActivity(activity: {
-        activityId: GCActivityId;
-    }): Promise<IActivity> {
-        if (!activity.activityId) throw new Error('Missing activityId');
-        return this.client.get<IActivity>(
-            this.url.ACTIVITY + activity.activityId
-        );
-    }
-
-    async countActivities(): Promise<ICountActivities> {
-        return this.client.get<ICountActivities>(this.url.STAT_ACTIVITIES, {
-            params: {
-                aggregation: 'lifetime',
-                startDate: '1970-01-01',
-                endDate: DateTime.now().toFormat('yyyy-MM-dd'),
-                metric: 'duration'
-            }
-        });
-    }
-
-    async downloadOriginalActivityData(
-        activity: { activityId: GCActivityId },
-        dir: string,
-        type: ExportFileTypeValue = 'zip'
-    ): Promise<void> {
-        if (!activity.activityId) throw new Error('Missing activityId');
-        if (!checkIsDirectory(dir)) {
-            createDirectory(dir);
-        }
-        let fileBuffer: Buffer;
-        if (type === 'tcx') {
-            fileBuffer = await this.client.get(
-                this.url.DOWNLOAD_TCX + activity.activityId
-            );
-        } else if (type === 'gpx') {
-            fileBuffer = await this.client.get(
-                this.url.DOWNLOAD_GPX + activity.activityId
-            );
-        } else if (type === 'kml') {
-            fileBuffer = await this.client.get(
-                this.url.DOWNLOAD_KML + activity.activityId
-            );
-        } else if (type === 'zip') {
-            fileBuffer = await this.client.get<Buffer>(
-                this.url.DOWNLOAD_ZIP + activity.activityId,
-                {
-                    responseType: 'arraybuffer'
-                }
-            );
-        } else {
-            throw new Error(
-                'downloadOriginalActivityData - Invalid type: ' + type
-            );
-        }
-        writeToFile(
-            path.join(dir, `${activity.activityId}.${type}`),
-            fileBuffer
-        );
-    }
-
-    async uploadActivity(
-        file: string,
-        format: UploadFileTypeTypeValue = 'fit'
-    ) {
-        const detectedFormat = (format || path.extname(file))?.toLowerCase();
-        if (!_.includes(UploadFileType, detectedFormat)) {
-            throw new Error('uploadActivity - Invalid format: ' + format);
-        }
-
-        const fileBuffer = fs.createReadStream(file);
-        const form = new FormData();
-        form.append('userfile', fileBuffer);
-        const response = await this.client.post(
-            this.url.UPLOAD + '.' + format,
-            form,
-            {
-                headers: {
-                    'Content-Type': form.getHeaders()['content-type']
-                }
-            }
-        );
-        return response;
-    }
-
-    async deleteActivity(activity: {
-        activityId: GCActivityId;
-    }): Promise<void> {
-        if (!activity.activityId) throw new Error('Missing activityId');
-        await this.client.delete<void>(this.url.ACTIVITY + activity.activityId);
-    }
-
-    async getWorkouts(start: number, limit: number): Promise<IWorkout[]> {
-        return this.client.get<IWorkout[]>(this.url.WORKOUTS, {
-            params: {
-                start,
-                limit
-            }
-        });
-    }
-    async getWorkoutDetail(workout: {
-        workoutId: string;
-    }): Promise<IWorkoutDetail> {
-        if (!workout.workoutId) throw new Error('Missing workoutId');
-        return this.client.get<IWorkoutDetail>(
-            this.url.WORKOUT(workout.workoutId)
-        );
-    }
-
-    async addWorkout(
-        workout: IWorkoutDetail | Running
-    ): Promise<IWorkoutDetail> {
-        if (!workout) throw new Error('Missing workout');
-
-        if (workout instanceof Running) {
-            if (workout.isValid()) {
-                const data = { ...workout.toJson() };
-                if (!data.description) {
-                    data.description = 'Added by garmin-connect for Node.js';
-                }
-                return this.client.post<IWorkoutDetail>(
-                    this.url.WORKOUT(),
-                    data
-                );
-            }
-        }
-
-        const newWorkout = _.omit(workout, [
-            'workoutId',
-            'ownerId',
-            'updatedDate',
-            'createdDate',
-            'author'
-        ]);
-        if (!newWorkout.description) {
-            newWorkout.description = 'Added by garmin-connect for Node.js';
-        }
-        // console.log('addWorkout - newWorkout:', newWorkout)
-        return this.client.post<IWorkoutDetail>(this.url.WORKOUT(), newWorkout);
-    }
-
-    async addRunningWorkout(
-        name: string,
-        meters: number,
-        description: string
-    ): Promise<IWorkoutDetail> {
-        const running = new Running();
-        running.name = name;
-        running.distance = meters;
-        running.description = description;
-        return this.addWorkout(running);
-    }
-
-    async deleteWorkout(workout: { workoutId: string }) {
-        if (!workout.workoutId) throw new Error('Missing workout');
-        return this.client.delete(this.url.WORKOUT(workout.workoutId));
-    }
-
     async getSteps(date = new Date()): Promise<number> {
-        const dateString = toDateString(date);
+        const d = toDateString(date);
+        const cacheKey = `steps:${d}`;
+
+        // Check cache first
+        const cached = this.dailyCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
 
         const days = await this.client.get<IDailyStepsType[]>(
-            `${this.url.DAILY_STEPS}${dateString}/${dateString}`
-        );
-        const dayStats = days.find(
-            ({ calendarDate }) => calendarDate === dateString
+            `${this.url.DAILY_STEPS}${d}/${d}`
         );
 
-        if (!dayStats) {
-            throw new Error("Can't find daily steps for this date.");
-        }
+        const day = days.find((x) => x.calendarDate === d);
+        if (!day) throw new Error('No steps');
 
-        return dayStats.totalSteps;
+        // Cache the result
+        this.dailyCache.set(cacheKey, day.totalSteps);
+
+        return day.totalSteps;
     }
 
-    async getSleepData(date = new Date()): Promise<SleepData> {
-        try {
-            const dateString = toDateString(date);
+    async getSleep(date = new Date()): Promise<SleepData> {
+        const d = toDateString(date);
+        const cacheKey = `sleep:${d}`;
 
-            const sleepData = await this.client.get<SleepData>(
-                `${this.url.DAILY_SLEEP}`,
-                { params: { date: dateString } }
-            );
-
-            if (!sleepData) {
-                throw new Error('Invalid or empty sleep data response.');
-            }
-
-            return sleepData;
-        } catch (error: any) {
-            throw new Error(`Error in getSleepData: ${error.message}`);
+        // Check cache first
+        const cached = this.dailyCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
         }
+
+        const sleepData = await this.client.get<SleepData>(
+            this.url.DAILY_SLEEP,
+            { params: { date: d } }
+        );
+
+        // Cache the result
+        this.dailyCache.set(cacheKey, sleepData);
+
+        return sleepData;
     }
 
-    async getSleepDuration(
-        date = new Date()
-    ): Promise<{ hours: number; minutes: number }> {
-        try {
-            const sleepData = await this.getSleepData(date);
+    async getSleepDuration(date = new Date()) {
+        const sleep = await this.getSleep(date);
+        return calculateTimeDifference(
+            sleep.dailySleepDTO.sleepStartTimestampGMT,
+            sleep.dailySleepDTO.sleepEndTimestampGMT
+        );
+    }
 
-            if (
-                !sleepData ||
-                !sleepData.dailySleepDTO ||
-                sleepData.dailySleepDTO.sleepStartTimestampGMT === undefined ||
-                sleepData.dailySleepDTO.sleepEndTimestampGMT === undefined
-            ) {
-                throw new Error(
-                    'Invalid or missing sleep data for the specified date.'
-                );
-            }
+    async updateHydrationLogOunces(date: Date, oz: number) {
+        const profile = await this.getUserProfile();
 
-            const sleepStartTimestampGMT =
-                sleepData.dailySleepDTO.sleepStartTimestampGMT;
-            const sleepEndTimestampGMT =
-                sleepData.dailySleepDTO.sleepEndTimestampGMT;
+        return this.client.put(this.url.HYDRATION_LOG, {
+            calendarDate: toDateString(date),
+            valueInML: convertOuncesToML(oz),
+            userProfileId: profile.profileId,
+            timestampLocal: date.toISOString().substring(0, 23)
+        });
+    }
 
-            const { hours, minutes } = calculateTimeDifference(
-                sleepStartTimestampGMT,
-                sleepEndTimestampGMT
-            );
+    async getWeight(date = new Date()): Promise<Weight | null> {
+        const d = toDateString(date);
+        const cacheKey = `weight:${d}`;
 
-            return {
-                hours,
-                minutes
+        // Check cache first
+        const cached = this.dailyCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const data = await this.client.get<WeightData>(
+            `${this.url.DAILY_WEIGHT}/${d}`
+        );
+
+        let result: Weight | null = null;
+        const weight = data.dateWeightList?.find((x) => x.calendarDate === d);
+
+        if (weight) {
+            // Convert weight from grams to kg
+            result = {
+                ...weight,
+                weight: weight.weight / 1000
             };
-        } catch (error: any) {
-            throw new Error(`Error in getSleepDuration: ${error.message}`);
+        } else if (data.dateWeightList && data.dateWeightList.length > 0) {
+            const firstWeight = data.dateWeightList[0];
+            // Convert weight from grams to kg
+            result = {
+                ...firstWeight,
+                weight: firstWeight.weight / 1000
+            };
         }
-    }
 
-    async getDailyWeightData(date = new Date()): Promise<WeightData> {
-        try {
-            const dateString = toDateString(date);
-            const weightData = await this.client.get<WeightData>(
-                `${this.url.DAILY_WEIGHT}/${dateString}`
-            );
+        // Cache the result (even if null to avoid repeated failed requests)
+        this.dailyCache.set(cacheKey, result);
 
-            if (!weightData) {
-                throw new Error('Invalid or empty weight data response.');
-            }
-
-            return weightData;
-        } catch (error: any) {
-            throw new Error(`Error in getDailyWeightData: ${error.message}`);
-        }
-    }
-
-    async getDailyWeightInPounds(date = new Date()): Promise<number> {
-        const weightData = await this.getDailyWeightData(date);
-
-        if (
-            weightData.totalAverage &&
-            typeof weightData.totalAverage.weight === 'number'
-        ) {
-            return gramsToPounds(weightData.totalAverage.weight);
-        } else {
-            throw new Error("Can't find valid daily weight for this date.");
-        }
-    }
-
-    async getDailyHydration(date = new Date()): Promise<number> {
-        try {
-            const dateString = toDateString(date);
-            const hydrationData = await this.client.get<HydrationData>(
-                `${this.url.DAILY_HYDRATION}/${dateString}`
-            );
-
-            if (!hydrationData || !hydrationData.valueInML) {
-                throw new Error('Invalid or empty hydration data response.');
-            }
-
-            return convertMLToOunces(hydrationData.valueInML);
-        } catch (error: any) {
-            throw new Error(`Error in getDailyHydration: ${error.message}`);
-        }
-    }
-
-    async updateWeight(
-        date = new Date(),
-        lbs: number,
-        timezone: string
-    ): Promise<UpdateWeight> {
-        try {
-            const weightData = await this.client.post<UpdateWeight>(
-                `${this.url.UPDATE_WEIGHT}`,
-                {
-                    dateTimestamp: getLocalTimestamp(date, timezone),
-                    gmtTimestamp: date.toISOString().substring(0, 23),
-                    unitKey: 'lbs',
-                    value: lbs
-                }
-            );
-
-            return weightData;
-        } catch (error: any) {
-            throw new Error(`Error in updateWeight: ${error.message}`);
-        }
-    }
-
-    async updateHydrationLogOunces(
-        date = new Date(),
-        valueInOz: number
-    ): Promise<WaterIntake> {
-        try {
-            const dateString = toDateString(date);
-            const hydrationData = await this.client.put<WaterIntake>(
-                `${this.url.HYDRATION_LOG}`,
-                {
-                    calendarDate: dateString,
-                    valueInML: convertOuncesToML(valueInOz),
-                    userProfileId: (await this.getUserProfile()).profileId,
-                    timestampLocal: date.toISOString().substring(0, 23)
-                }
-            );
-
-            return hydrationData;
-        } catch (error: any) {
-            throw new Error(
-                `Error in updateHydrationLogOunces: ${error.message}`
-            );
-        }
-    }
-
-    async getGolfSummary(): Promise<GolfSummary> {
-        try {
-            const golfSummary = await this.client.get<GolfSummary>(
-                `${this.url.GOLF_SCORECARD_SUMMARY}`
-            );
-
-            if (!golfSummary) {
-                throw new Error('Invalid or empty golf summary data response.');
-            }
-
-            return golfSummary;
-        } catch (error: any) {
-            throw new Error(`Error in getGolfSummary: ${error.message}`);
-        }
-    }
-
-    async getGolfScorecard(scorecardId: number): Promise<GolfScorecard> {
-        try {
-            const golfScorecard = await this.client.get<GolfScorecard>(
-                `${this.url.GOLF_SCORECARD_DETAIL}`,
-                { params: { 'scorecard-ids': scorecardId } }
-            );
-
-            if (!golfScorecard) {
-                throw new Error(
-                    'Invalid or empty golf scorecard data response.'
-                );
-            }
-
-            return golfScorecard;
-        } catch (error: any) {
-            throw new Error(`Error in getGolfScorecard: ${error.message}`);
-        }
+        return result;
     }
 
     async getHeartRate(date = new Date()): Promise<HeartRate> {
-        try {
-            const dateString = toDateString(date);
-            const heartRate = await this.client.get<HeartRate>(
-                `${this.url.DAILY_HEART_RATE}`,
-                { params: { date: dateString } }
-            );
+        const d = toDateString(date);
+        const cacheKey = `heartrate:${d}`;
 
-            return heartRate;
-        } catch (error: any) {
-            throw new Error(`Error in getHeartRate: ${error.message}`);
+        // Check cache first
+        const cached = this.dailyCache.get(cacheKey);
+        if (cached) {
+            return cached;
         }
+
+        const heartRate = await this.client.get<HeartRate>(
+            this.url.DAILY_HEART_RATE,
+            {
+                params: { date: d }
+            }
+        );
+
+        // Cache the result
+        this.dailyCache.set(cacheKey, heartRate);
+
+        return heartRate;
     }
 
-    async get<T>(url: string, data?: any) {
-        const response = await this.client.get(url, data);
-        return response as T;
+    /* ----------------------------------------------------- */
+    async uploadActivity(): Promise<never> {
+        throw new Error('uploadActivity is not supported on mobile');
     }
 
-    async post<T>(url: string, data: any) {
-        const response = await this.client.post<T>(url, data, {});
-        return response as T;
-    }
-
-    async put<T>(url: string, data: any) {
-        const response = await this.client.put<T>(url, data, {});
-        return response as T;
+    async downloadOriginalActivityData(): Promise<never> {
+        throw new Error(
+            'downloadOriginalActivityData is not supported on mobile'
+        );
     }
 }

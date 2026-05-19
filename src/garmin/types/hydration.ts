@@ -1,4 +1,4 @@
-interface HydrationData {
+export interface HydrationData {
     userId: number;
     calendarDate: string;
     lastEntryTimestampLocal: string;
@@ -29,3 +29,5 @@ interface WaterIntake {
     sweatLossInML: number | null;
     activityIntakeInML: number;
 }
+
+export {};

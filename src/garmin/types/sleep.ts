@@ -124,3 +124,4 @@ export interface SleepData {
     bodyBatteryChange: number;
     restingHeartRate: number;
 }
+export {};

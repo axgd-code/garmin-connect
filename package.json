@@ -9,6 +9,9 @@
         "build:windows": "tsc --build --clean && tsc",
         "build:watch": "npm run build -- --watch",
         "build:watch-windows": "npm run build:windows -- --watch",
+        "test": "node test/run-tests.js",
+        "test:examples": "RUN_EXAMPLES=1 node test/run-tests.js",
+        "test:real-api": "npm run build && npx tsx test/05-real-api-test.ts",
         "prettier:all": "prettier --write .",
         "pretty": "pretty-quick --staged",
         "prepack": "npm run build"
@@ -37,6 +40,7 @@
     ],
     "devDependencies": {
         "@types/app-root-path": "^1.2.4",
+        "@types/crypto-js": "^4.2.2",
         "@types/lodash": "^4.14.199",
         "@types/luxon": "^3.3.2",
         "@types/node": "^18.11.15",
@@ -54,12 +58,12 @@
     "runkitExampleFilename": "./examples/example.js",
     "dependencies": {
         "app-root-path": "^3.1.0",
-        "axios": "^1.5.1",
-        "crypto": "^1.0.1",
-        "form-data": "^4.0.0",
+        "crypto-js": "^4.2.0",
+        "form-data": "^4.0.5",
         "lodash": "^4.17.21",
         "luxon": "^3.4.3",
         "oauth-1.0a": "^2.2.6",
+        "obsidian": "latest",
         "qs": "^6.11.2"
     },
     "pre-commit": "pretty"

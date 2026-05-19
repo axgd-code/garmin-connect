@@ -471,3 +471,76 @@ export interface IDailyStepsType {
     totalDistance: number;
     totalSteps: number;
 }
+
+// Weight types
+export interface Weight {
+    samplePk: number;
+    date: number;
+    calendarDate: string;
+    weight: number; // in kg (converted from grams by getWeight())
+    bmi: number | null;
+    bodyFat: number | null;
+    bodyWater: number | null;
+    boneMass: number | null;
+    muscleMass: number | null;
+    physiqueRating: number | null;
+    visceralFat: number | null;
+    metabolicAge: number | null;
+    sourceType: string;
+    timestampGMT: number;
+    weightDelta: number;
+}
+
+export interface TotalAverage {
+    from: number;
+    until: number;
+    weight: number;
+    bmi: number | null;
+    bodyFat: number | null;
+    bodyWater: number | null;
+    boneMass: number | null;
+    muscleMass: number | null;
+    physiqueRating: number | null;
+    visceralFat: number | null;
+    metabolicAge: number | null;
+}
+
+export interface WeightData {
+    startDate: string;
+    endDate: string;
+    dateWeightList: Weight[];
+    totalAverage: TotalAverage;
+}
+
+export interface UpdateWeight {
+    dateTimestamp: string;
+    gmtTimestamp: string;
+    unitKey: string;
+    value: number;
+}
+
+// Heart rate types
+export interface HeartRateValueDescriptor {
+    key: string;
+    index: number;
+}
+
+export interface HeartRateEntry {
+    timestamp: number;
+    heartrate: number;
+}
+
+export interface HeartRate {
+    userProfilePK: number;
+    calendarDate: string;
+    startTimestampGMT: string;
+    endTimestampGMT: string;
+    startTimestampLocal: string;
+    endTimestampLocal: string;
+    maxHeartRate: number;
+    minHeartRate: number;
+    restingHeartRate: number;
+    lastSevenDaysAvgRestingHeartRate: number;
+    heartRateValueDescriptors: HeartRateValueDescriptor[];
+    heartRateValues: HeartRateEntry[][];
+}

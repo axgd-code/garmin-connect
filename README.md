@@ -60,6 +60,51 @@ const userProfile = await GCClient.getUserProfile();
 
 Now you can check `userProfile.userName` to verify that your login was successful.
 
+### Configuration Options (v1.6.0+)
+
+You can customize HTTP client behavior to reduce rate limiting and optimize token reuse:
+
+```js
+const GCClient = new GarminConnect(
+    {
+        username: 'my.email@example.com',
+        password: 'MySecretPassword'
+    },
+    'garmin.com',
+    {
+        httpClientConfig: {
+            maxRetries: 5, // Number of retries on 429 (default: 5)
+            tokenFilePath: '/custom/path/to/garmin.tokens.json' // Custom token storage location
+        }
+    }
+);
+
+await GCClient.login();
+```
+
+**Token Persistence (Automatic)**
+
+By default, OAuth tokens are automatically saved to `garmin.tokens.json` in your app root after each login. This means:
+
+-   On next initialization, tokens are loaded automatically (avoiding unnecessary re-logins)
+-   Token refresh happens automatically before requests if token is expired
+-   This drastically reduces HTTP calls and minimizes 429 rate limit errors
+
+To clear persisted tokens (e.g., for testing):
+
+```js
+GCClient.client.clearPersistedTokens();
+```
+
+**Rate Limiting (HTTP 429)**
+
+If you encounter `HTTP 429: Too Many Requests`:
+
+-   The client automatically retries with exponential backoff (max `maxRetries` attempts)
+-   Respects the `Retry-After` header from Garmin servers
+-   Tokens are persisted to avoid redundant login requests
+-   Consider increasing `maxRetries` if you make many concurrent requests
+
 ## Reusing your session(since v1.6.0)
 
 ### Save token to file and reuse it.
@@ -422,6 +467,116 @@ const hydrationInOunces = await GCClient.getDailyHydration(
     new Date('2023-12-25')
 );
 ```
+
+### `getWeight(date?: Date): Promise<DateWeight | null>`
+
+Retrieves comprehensive weight and body composition data for a specific date.
+
+#### Parameters:
+
+-   `date` (Date, optional): Date of the requested information. Defaults to the current date.
+
+#### Returns:
+
+-   `Promise<DateWeight | null>`: A Promise that resolves to the weight data for the specified date, or `null` if no data is available.
+
+#### DateWeight Interface:
+
+```typescript
+interface DateWeight {
+    samplePk: number;
+    date: number;
+    calendarDate: string;
+    weight: number; // Weight in kg
+    bmi: number | null; // Body Mass Index
+    bodyFat: number | null; // Body fat percentage
+    bodyWater: number | null; // Body water percentage
+    boneMass: number | null; // Bone mass in kg
+    muscleMass: number | null; // Muscle mass in kg
+    physiqueRating: number | null;
+    visceralFat: number | null;
+    metabolicAge: number | null;
+    sourceType: string;
+    timestampGMT: number;
+    weightDelta: number; // Change from previous measurement
+}
+```
+
+#### Example:
+
+```js
+const weight = await GCClient.getWeight(new Date('2023-12-25'));
+if (weight) {
+    console.log(`Weight: ${weight.weight} kg`);
+    console.log(`BMI: ${weight.bmi}`);
+    console.log(`Body Fat: ${weight.bodyFat}%`);
+    console.log(`Muscle Mass: ${weight.muscleMass} kg`);
+}
+```
+
+### `getHeartRate(date?: Date): Promise<HeartRate>`
+
+Retrieves detailed heart rate data for a specific date, including resting heart rate, min/max values, and all measurements throughout the day.
+
+#### Parameters:
+
+-   `date` (Date, optional): Date of the requested information. Defaults to the current date.
+
+#### Returns:
+
+-   `Promise<HeartRate>`: A Promise that resolves to the heart rate data for the specified date.
+
+#### HeartRate Interface:
+
+```typescript
+interface HeartRate {
+    userProfilePK: number;
+    calendarDate: string;
+    startTimestampGMT: string;
+    endTimestampGMT: string;
+    startTimestampLocal: string;
+    endTimestampLocal: string;
+    maxHeartRate: number; // Maximum heart rate (bpm)
+    minHeartRate: number; // Minimum heart rate (bpm)
+    restingHeartRate: number; // Resting heart rate (bpm)
+    lastSevenDaysAvgRestingHeartRate: number; // 7-day average (bpm)
+    heartRateValueDescriptors: HeartRateValueDescriptor[];
+    heartRateValues: HeartRateEntry[][]; // All HR measurements
+}
+```
+
+#### Example:
+
+```js
+const hr = await GCClient.getHeartRate(new Date('2023-12-25'));
+console.log(`Resting HR: ${hr.restingHeartRate} bpm`);
+console.log(`Max HR: ${hr.maxHeartRate} bpm`);
+console.log(`Min HR: ${hr.minHeartRate} bpm`);
+console.log(`7-Day Avg: ${hr.lastSevenDaysAvgRestingHeartRate} bpm`);
+
+// Access individual measurements
+hr.heartRateValues.forEach((measurements) => {
+    measurements.forEach((entry) => {
+        const time = new Date(entry.timestamp);
+        console.log(`${time.toLocaleTimeString()}: ${entry.heartrate} bpm`);
+    });
+});
+```
+
+### Example: Fetch Health Data
+
+See [examples/fetch_health_data.js](examples/fetch_health_data.js) for a complete example that fetches weight and heart rate data:
+
+```bash
+node examples/fetch_health_data.js
+```
+
+This example demonstrates:
+
+-   Fetching weight data for multiple dates
+-   Accessing body composition metrics (BMI, body fat, muscle mass)
+-   Retrieving heart rate data with all measurements
+-   Handling dates when no data is available
 
 ### `getGolfSummary(): Promise<GolfSummary>`
 

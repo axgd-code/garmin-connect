@@ -1,11 +1,15 @@
-const { GarminConnect } = require('garmin-connect');
+const { GarminConnect } = require('..');
+const {
+    username: USERNAME,
+    password: PASSWORD
+} = require('../config/load-config');
 
 // Has to be run in an async function to be able to use the await keyword
 const main = async () => {
     // Create a new Garmin Connect Client
     const GCClient = new GarminConnect({
-        username: 'your-email',
-        password: 'your-password'
+        username: USERNAME,
+        password: PASSWORD
     });
 
     // TODO: Test China Domain
@@ -16,7 +20,8 @@ const main = async () => {
     // }, 'garmin.cn');
 
     // Uses credentials from garmin.config.json or uses supplied params
-    await GCClient.login();
+    // Pass credentials explicitly to `login` to demonstrate that API form
+    await GCClient.login(USERNAME, PASSWORD);
 
     // // Get user info
     // const info = await GCClient.getUserInfo();

@@ -72,3 +72,5 @@ interface GolfScorecard {
     sensorOnPutter: boolean;
     handicappedStrokes: number;
 }
+
+export {};

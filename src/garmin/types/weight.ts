@@ -1,10 +1,11 @@
 // weight-service/weight/dayview/2023-12-28
+// Note: API returns weight in grams, but GarminConnect.getWeight() converts to kg
 
-interface DateWeight {
+export interface Weight {
     samplePk: number;
     date: number;
     calendarDate: string;
-    weight: number;
+    weight: number; // in kg (converted from grams by getWeight())
     bmi: number | null;
     bodyFat: number | null;
     bodyWater: number | null;
@@ -35,7 +36,7 @@ interface TotalAverage {
 interface WeightData {
     startDate: string;
     endDate: string;
-    dateWeightList: DateWeight[];
+    dateWeightList: Weight[];
     totalAverage: TotalAverage;
 }
 
@@ -45,3 +46,5 @@ interface UpdateWeight {
     unitKey: string; // Example: "lbs"
     value: number; // Example: 202.9
 }
+
+export {};
