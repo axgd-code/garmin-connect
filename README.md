@@ -27,6 +27,44 @@ All of above work inspired by [https://github.com/matin/garth](https://github.co
 
 A powerful JavaScript library for connecting to Garmin Connect for sending and receiving health and workout data. It comes with some predefined methods to get and set different kinds of data for your Garmin account, but also have the possibility to make [custom requests](#custom-requests) `GET`, `POST` and `PUT` are currently supported. This makes it easy to implement whatever may be missing to suite your needs.
 
+## Notes About This Fork (Obsidian Focus)
+
+This fork adds an Obsidian-specific compatibility layer (desktop + mobile) while remaining usable in standard Node.js environments.
+
+Main differences compared to upstream:
+
+-   Obsidian-adapted HTTP transport: uses `requestUrl` when Obsidian is available, with a Node.js `fetch` fallback.
+-   Manual cookie management (cookie jar): required because Obsidian HTTP calls are stateless.
+-   Plugin/mobile-oriented token persistence:
+    -   supports a global store (`globalThis.__GarminTokenStore`) for plugins,
+    -   supports an async adapter (`tokenPersistence`) so you can plug in your own storage,
+    -   keeps `tokenFilePath` only for backward compatibility and marks it as deprecated in Obsidian/mobile environments.
+-   Robust rate-limit handling (HTTP 429): exponential retry + `Retry-After` header support.
+-   Configurable structured logging (`silent`, `error`, `warn`, `info`, `debug`) to simplify debugging inside Obsidian plugins.
+-   Safer response parsing: protected JSON access + text/HTML fallback to avoid crashes on non-JSON responses.
+
+## Why It Works Better With Obsidian
+
+Inside an Obsidian plugin, runtime constraints differ from a standard Node.js script. This fork works better in that context for 4 practical reasons:
+
+1. Reliable HTTP session handling without a full browser
+
+The client explicitly rebuilds and injects cookies between requests. Without this, the Garmin authentication flow is unstable in a stateless environment.
+
+2. Plugin-friendly session persistence
+
+OAuth tokens can be loaded/saved through a plugin store or a persistence adapter, which avoids frequent re-logins and significantly reduces 429 errors.
+
+3. Compatibility with Obsidian/Electron specifics
+
+The code handles runtime-specific behavior (for example: potentially merged `set-cookie`, fragile JSON parsing, HTML responses), making auth flows more resilient.
+
+4. Easier real-world debugging
+
+Log levels make it easier to diagnose SSO/OAuth issues, 429 retries, and token persistence behavior directly in the Obsidian environment.
+
+If your main target is an Obsidian plugin (especially mobile), this fork is better suited than an implementation designed only for Node.js.
+
 ## Prerequisites
 
 This library will require you to add a configuration file to your project root called `garmin.config.json` containing your username and password for the Garmin Connect service.

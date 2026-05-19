@@ -1,27 +1,27 @@
-# Configuration du niveau de logging
+# Logging Level Configuration
 
-Par défaut, seules les **erreurs** sont affichées dans la console. Vous pouvez configurer le niveau de logging selon vos besoins.
+By default, only **errors** are printed to the console. You can configure the logging level based on your needs.
 
-## Niveaux disponibles
+## Available Levels
 
--   `'silent'` : Aucun log
--   `'error'` : Erreurs uniquement (défaut)
--   `'warn'` : Erreurs + warnings
--   `'info'` : Erreurs + warnings + infos (login, token refresh, etc.)
--   `'debug'` : Tous les logs y compris détails techniques (requêtes HTTP, OAuth, etc.)
+-   `'silent'`: No logs
+-   `'error'`: Errors only (default)
+-   `'warn'`: Errors + warnings
+-   `'info'`: Errors + warnings + info (login, token refresh, etc.)
+-   `'debug'`: All logs including technical details (HTTP requests, OAuth, etc.)
 
-## Exemple d'utilisation
+## Usage Example
 
 ```typescript
 import GarminConnect from 'garmin-connect';
 
-// Configuration par défaut (erreurs uniquement)
+// Default configuration (errors only)
 const client = new GarminConnect({
     username: 'your-email@example.com',
     password: 'your-password'
 });
 
-// Activer les logs d'info (login, refresh, etc.)
+// Enable info logs (login, refresh, etc.)
 const clientWithInfo = new GarminConnect(
     {
         username: 'your-email@example.com',
@@ -35,7 +35,7 @@ const clientWithInfo = new GarminConnect(
     }
 );
 
-// Activer le mode debug complet (pour troubleshooting)
+// Enable full debug mode (for troubleshooting)
 const clientDebug = new GarminConnect(
     {
         username: 'your-email@example.com',
@@ -49,7 +49,7 @@ const clientDebug = new GarminConnect(
     }
 );
 
-// Mode silencieux (aucun log, même les erreurs)
+// Silent mode (no logs, even errors)
 const clientSilent = new GarminConnect(
     {
         username: 'your-email@example.com',
@@ -64,9 +64,9 @@ const clientSilent = new GarminConnect(
 );
 ```
 
-## Qu'affiche chaque niveau ?
+## What Does Each Level Show?
 
-### `error` (défaut)
+### `error` (default)
 
 ```
 ❌ HTTP 401 Error
@@ -76,7 +76,7 @@ const clientSilent = new GarminConnect(
 
 ### `warn`
 
-Erreurs + warnings :
+Errors + warnings:
 
 ```
 ⚠️  Token load via plugin data failed
@@ -86,7 +86,7 @@ Erreurs + warnings :
 
 ### `info`
 
-Erreurs + warnings + infos :
+Errors + warnings + info:
 
 ```
 ℹ️  🔐 Starting Garmin login...
@@ -100,7 +100,7 @@ Erreurs + warnings + infos :
 
 ### `debug`
 
-Tous les logs + détails techniques :
+All logs + technical details:
 
 ```
 🐛 🌐 REQUEST: POST https://sso.garmin.com/sso/signin...
@@ -118,9 +118,9 @@ Tous les logs + détails techniques :
 🐛 ✅ OAuth2 token set, expires in: 68253 seconds
 ```
 
-## Recommandations
+## Recommendations
 
--   **Production** : Utilisez `'error'` (défaut) ou `'silent'`
--   **Développement** : Utilisez `'info'` pour voir le flux principal
--   **Debug/Troubleshooting** : Utilisez `'debug'` pour voir tous les détails
--   **Tests automatisés** : Utilisez `'silent'` pour éviter la pollution des logs
+-   **Production**: Use `'error'` (default) or `'silent'`
+-   **Development**: Use `'info'` to see the main flow
+-   **Debug/Troubleshooting**: Use `'debug'` to see all details
+-   **Automated Tests**: Use `'silent'` to avoid log noise
