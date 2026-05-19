@@ -1,4 +1,4 @@
-# garmin-connect
+# garmin-connect-obsidian
 
 ## v1.6.0 refactor
 
@@ -79,13 +79,13 @@ This library will require you to add a configuration file to your project root c
 ## How to install
 
 ```shell
-$ npm install garmin-connect
+$ npm install garmin-connect-obsidian
 ```
 
 ## How to use
 
 ```js
-const { GarminConnect } = require('garmin-connect');
+const { GarminConnect } = require('garmin-connect-obsidian');
 // Create a new Garmin Connect Client
 const GCClient = new GarminConnect({
     username: 'my.email@example.com',

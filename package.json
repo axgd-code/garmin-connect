@@ -1,6 +1,6 @@
 {
-    "name": "garmin-connect",
-    "version": "1.6.2",
+    "name": "garmin-connect-obsidian",
+    "version": "1.0.1",
     "description": "Makes it simple to interface with Garmin Connect to get or set any data point",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -18,7 +18,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/Pythe1337N/garmin-connect.git"
+        "url": "git+https://github.com/axgd-code/garmin-connect.git"
     },
     "keywords": [
         "garmin",
@@ -51,9 +51,9 @@
         "pretty-quick": "^3.1.3",
         "typescript": "^4.9.4"
     },
-    "homepage": "https://github.com/Pythe1337N/garmin-connect#readme",
+    "homepage": "https://github.com/axgd-code/garmin-connect#readme",
     "bugs": {
-        "url": "https://github.com/Pythe1337N/garmin-connect/issues"
+        "url": "https://github.com/axgd-code/garmin-connect/issues"
     },
     "runkitExampleFilename": "./examples/example.js",
     "dependencies": {

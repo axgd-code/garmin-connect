@@ -13,7 +13,7 @@ By default, only **errors** are printed to the console. You can configure the lo
 ## Usage Example
 
 ```typescript
-import GarminConnect from 'garmin-connect';
+import GarminConnect from 'garmin-connect-obsidian';
 
 // Default configuration (errors only)
 const client = new GarminConnect({
