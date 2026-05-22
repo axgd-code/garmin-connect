@@ -1,6 +1,6 @@
 {
     "name": "garmin-connect-obsidian",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Makes it simple to interface with Garmin Connect to get or set any data point",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -54,6 +54,9 @@
     "homepage": "https://github.com/axgd-code/garmin-connect#readme",
     "bugs": {
         "url": "https://github.com/axgd-code/garmin-connect/issues"
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "runkitExampleFilename": "./examples/example.js",
     "dependencies": {
