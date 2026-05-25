@@ -32,6 +32,7 @@ import {
     IOauth1Token,
     IOauth2Token,
     ISocialProfile,
+    IUserPerformanceMetrics,
     IUserSettings,
     IWorkout,
     IWorkoutDetail,
@@ -191,6 +192,34 @@ export default class GarminConnect {
 
         this.profileCache.set('profile', profile);
         return profile;
+    }
+
+    async getUserSettings(): Promise<IUserSettings> {
+        return this.client.get<IUserSettings>(this.url.USER_SETTINGS);
+    }
+
+    async getUserPerformanceMetrics(): Promise<IUserPerformanceMetrics> {
+        const { userData } = await this.getUserSettings();
+
+        return {
+            activityLevel: userData.activityLevel,
+            lactateThresholdHeartRate: userData.lactateThresholdHeartRate,
+            lactateThresholdHeartRateCycling:
+                userData.lactateThresholdHeartRateCycling,
+            lactateThresholdHeartRateRowing:
+                userData.lactateThresholdHeartRateRowing,
+            lactateThresholdRowingPace: userData.lactateThresholdRowingPace,
+            lactateThresholdSpeed: userData.lactateThresholdSpeed,
+            moderateIntensityMinutesHrZone:
+                userData.moderateIntensityMinutesHrZone,
+            thresholdHeartRateAutoDetected:
+                userData.thresholdHeartRateAutoDetected,
+            vigorousIntensityMinutesHrZone:
+                userData.vigorousIntensityMinutesHrZone,
+            vo2MaxCycling: userData.vo2MaxCycling,
+            vo2MaxRunning: userData.vo2MaxRunning,
+            weight: userData.weight
+        };
     }
 
     async getActivities(

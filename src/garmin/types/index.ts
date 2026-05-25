@@ -300,6 +300,9 @@ export interface IUserData {
     vo2MaxCycling: unknown;
     lactateThresholdSpeed: unknown;
     lactateThresholdHeartRate: unknown;
+    lactateThresholdHeartRateCycling: unknown;
+    lactateThresholdHeartRateRowing: unknown;
+    lactateThresholdRowingPace: unknown;
     diveNumber: unknown;
     intensityMinutesCalcMethod: string;
     moderateIntensityMinutesHrZone: number;
@@ -326,6 +329,22 @@ export interface IUserData {
     golfSpeedUnit: unknown;
     externalBottomTime: unknown;
 }
+
+export interface IUserPerformanceMetrics {
+    activityLevel: IUserData['activityLevel'];
+    lactateThresholdHeartRate: IUserData['lactateThresholdHeartRate'];
+    lactateThresholdHeartRateCycling: IUserData['lactateThresholdHeartRateCycling'];
+    lactateThresholdHeartRateRowing: IUserData['lactateThresholdHeartRateRowing'];
+    lactateThresholdRowingPace: IUserData['lactateThresholdRowingPace'];
+    lactateThresholdSpeed: IUserData['lactateThresholdSpeed'];
+    moderateIntensityMinutesHrZone: IUserData['moderateIntensityMinutesHrZone'];
+    thresholdHeartRateAutoDetected: IUserData['thresholdHeartRateAutoDetected'];
+    vigorousIntensityMinutesHrZone: IUserData['vigorousIntensityMinutesHrZone'];
+    vo2MaxCycling: IUserData['vo2MaxCycling'];
+    vo2MaxRunning: IUserData['vo2MaxRunning'];
+    weight: IUserData['weight'];
+}
+
 export interface IUserSleepWindows {
     sleepWindowFrequency: string;
     startSleepTimeSecondsFromMidnight: number;

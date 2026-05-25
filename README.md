@@ -8,10 +8,10 @@ TODO:
 -   [x] Login and get user token
 -   [x] Garmin URLs works with `garmin.cn` and `garmin.com`
 -   [x] Auto refresh Ouath2 token
--   [x] Oauth1,Oauth2 token import and export.
+-   [x] Oauth1, Oauth2 token import and export.
 -   [x] Download Activity, countActivities, getActivities, getActivity, getUserProfile, getUserSettings
 -   [x] Upload Activity, delete Activity
--   [ ] Implementation of other methods, such as Badge,Workout,Gear etc
+-   [ ] Implementation of other methods, such as Badge, Workout, Gear etc
 -   [ ] Handle MFA
 -   [x] Handle Account locked
 -   [ ] Unit test

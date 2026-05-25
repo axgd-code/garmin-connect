@@ -13,6 +13,7 @@ export type { LogLevel } from './common/Logger';
 // Export common types
 export type {
     ISocialProfile,
+    IUserPerformanceMetrics,
     IUserSettings,
     IWorkout,
     IWorkoutDetail,
