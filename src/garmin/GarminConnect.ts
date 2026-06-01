@@ -23,9 +23,14 @@ import {
 } from '../common/HttpClient';
 import { Cache } from '../common/Cache';
 import {
+    DailyHrvResponse,
+    DailyHrvSummary,
     ExportFileTypeValue,
     GCUserHash,
     GarminDomain,
+    DailyBodyBatteryStress,
+    DailySummary,
+    DailyStressStats,
     ICountActivities,
     IDailyStepsType,
     IGarminTokens,
@@ -256,6 +261,26 @@ export default class GarminConnect {
         return day.totalSteps;
     }
 
+    async getDailySummary(date = new Date()): Promise<DailySummary> {
+        const d = toDateString(date);
+        const cacheKey = `summary:${d}`;
+
+        const cached = this.dailyCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const profile = await this.getUserProfile();
+        const summary = await this.client.get<DailySummary>(
+            `${this.url.DAILY_SUMMARY}/${profile.displayName}`,
+            { params: { calendarDate: d } }
+        );
+
+        this.dailyCache.set(cacheKey, summary);
+
+        return summary;
+    }
+
     async getSleep(date = new Date()): Promise<SleepData> {
         const d = toDateString(date);
         const cacheKey = `sleep:${d}`;
@@ -355,6 +380,71 @@ export default class GarminConnect {
         this.dailyCache.set(cacheKey, heartRate);
 
         return heartRate;
+    }
+
+    async getDailyStress(date = new Date()): Promise<DailyStressStats> {
+        const d = toDateString(date);
+        const cacheKey = `stress:${d}`;
+
+        const cached = this.dailyCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const days = await this.client.get<DailyStressStats[]>(
+            `${this.url.DAILY_STRESS}${d}/${d}`
+        );
+
+        const day = days.find((x) => x.calendarDate === d);
+        if (!day) throw new Error('No stress data');
+
+        this.dailyCache.set(cacheKey, day);
+
+        return day;
+    }
+
+    async getDailyBodyBatteryStress(
+        date = new Date()
+    ): Promise<DailyBodyBatteryStress> {
+        const d = toDateString(date);
+        const cacheKey = `bodyBatteryStress:${d}`;
+
+        const cached = this.dailyCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const stressData = await this.client.get<DailyBodyBatteryStress>(
+            `${this.url.DAILY_BODY_BATTERY_STRESS}/${d}`
+        );
+
+        this.dailyCache.set(cacheKey, stressData);
+
+        return stressData;
+    }
+
+    async getDailyHrv(date = new Date()): Promise<DailyHrvSummary> {
+        const d = toDateString(date);
+        const cacheKey = `hrv:${d}`;
+
+        const cached = this.dailyCache.get(cacheKey);
+        if (cached !== undefined) {
+            return cached;
+        }
+
+        const response = await this.client.get<DailyHrvResponse>(
+            `${this.url.DAILY_HRV}${d}/${d}`
+        );
+
+        const summary =
+            response.hrvSummaries?.find((x) => x.calendarDate === d) ||
+            response.hrvSummaries?.[0];
+
+        if (!summary) throw new Error('No HRV data');
+
+        this.dailyCache.set(cacheKey, summary);
+
+        return summary;
     }
 
     /* ----------------------------------------------------- */

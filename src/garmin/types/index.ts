@@ -563,3 +563,91 @@ export interface HeartRate {
     heartRateValueDescriptors: HeartRateValueDescriptor[];
     heartRateValues: HeartRateEntry[][];
 }
+
+export interface DailyStressValues {
+    highStressDuration: number;
+    lowStressDuration: number;
+    overallStressLevel: number;
+    restStressDuration: number;
+    mediumStressDuration: number;
+}
+
+export interface DailyStressStats {
+    calendarDate: string;
+    values: DailyStressValues;
+}
+
+export type DailyStressReading = [timestamp: number, stressLevel: number];
+
+export type BodyBatteryReading = [
+    timestamp: number,
+    status: string,
+    level: number,
+    version: number
+];
+
+export interface DailyBodyBatteryStress {
+    userProfilePK: number;
+    calendarDate: string;
+    startTimestampGMT: string;
+    endTimestampGMT: string;
+    startTimestampLocal: string;
+    endTimestampLocal: string;
+    maxStressLevel: number;
+    avgStressLevel: number;
+    stressChartValueOffset: number;
+    stressChartYAxisOrigin: number;
+    stressValuesArray: DailyStressReading[];
+    bodyBatteryValuesArray: BodyBatteryReading[];
+}
+
+export interface DailySummary {
+    userProfileId: number;
+    calendarDate: string;
+    totalKilocalories?: number | null;
+    activeKilocalories?: number | null;
+    totalSteps?: number | null;
+    totalDistanceMeters?: number | null;
+    minHeartRate?: number | null;
+    maxHeartRate?: number | null;
+    restingHeartRate?: number | null;
+    averageStressLevel?: number | null;
+    maxStressLevel?: number | null;
+    stressQualifier?: string | null;
+    bodyBatteryAtWakeTime?: number | null;
+    bodyBatteryHighestValue?: number | null;
+    bodyBatteryLowestValue?: number | null;
+    bodyBatteryChargedValue?: number | null;
+    bodyBatteryDrainedValue?: number | null;
+    moderateIntensityMinutes?: number | null;
+    vigorousIntensityMinutes?: number | null;
+    activeSeconds?: number | null;
+    highlyActiveSeconds?: number | null;
+    sedentarySeconds?: number | null;
+    sleepingSeconds?: number | null;
+    averageSpo2?: number | null;
+    lowestSpo2?: number | null;
+    [key: string]: unknown;
+}
+
+export interface DailyHrvBaseline {
+    lowUpper: number;
+    balancedLow: number;
+    balancedUpper: number;
+    markerValue: number;
+}
+
+export interface DailyHrvSummary {
+    calendarDate: string;
+    weeklyAvg: number | null;
+    lastNightAvg: number | null;
+    lastNight5MinHigh: number | null;
+    baseline: DailyHrvBaseline | null;
+    status: string;
+    feedbackPhrase: string;
+    createTimeStamp: string;
+}
+
+export interface DailyHrvResponse {
+    hrvSummaries: DailyHrvSummary[];
+}

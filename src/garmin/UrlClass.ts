@@ -65,6 +65,9 @@ export class UrlClass {
     get DAILY_STEPS() {
         return `${this.GC_API}/usersummary-service/stats/steps/daily/`;
     }
+    get DAILY_SUMMARY() {
+        return `${this.GC_API}/usersummary-service/usersummary/daily`;
+    }
     get DAILY_SLEEP() {
         return `${this.GC_API}/sleep-service/sleep/dailySleepData`;
     }
@@ -88,6 +91,15 @@ export class UrlClass {
     }
     get DAILY_HEART_RATE() {
         return `${this.GC_API}/wellness-service/wellness/dailyHeartRate`;
+    }
+    get DAILY_STRESS() {
+        return `${this.GC_API}/usersummary-service/stats/stress/daily/`;
+    }
+    get DAILY_BODY_BATTERY_STRESS() {
+        return `${this.GC_API}/wellness-service/wellness/dailyStress`;
+    }
+    get DAILY_HRV() {
+        return `${this.GC_API}/hrv-service/hrv/daily/`;
     }
     WORKOUT(id?: GCWorkoutId) {
         if (id) {

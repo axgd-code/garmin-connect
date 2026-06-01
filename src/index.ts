@@ -26,6 +26,17 @@ export type { Weight } from './garmin/types/weight';
 export type { HeartRate } from './garmin/types/heartrate';
 export type { SleepData } from './garmin/types/sleep';
 export type { HydrationData } from './garmin/types/hydration';
+export type {
+    DailyHrvBaseline,
+    DailyHrvResponse,
+    DailyHrvSummary,
+    DailySummary,
+    DailyStressStats,
+    DailyStressValues,
+    DailyStressReading,
+    DailyBodyBatteryStress,
+    BodyBatteryReading
+} from './garmin/types';
 
 // Export activity types
 export type {

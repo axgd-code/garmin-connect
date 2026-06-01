@@ -601,6 +601,53 @@ hr.heartRateValues.forEach((measurements) => {
 });
 ```
 
+### `getDailySummary(date?: Date): Promise<DailySummary>`
+
+Retrieves Garmin's daily summary for a specific date. This includes daily totals and health indicators such as stress and Body Battery levels.
+
+#### Parameters:
+
+-   `date` (Date, optional): Date of the requested information. Defaults to the current date.
+
+#### Returns:
+
+-   `Promise<DailySummary>`: A Promise that resolves to a comprehensive daily summary object.
+
+#### Example:
+
+```js
+const summary = await GCClient.getDailySummary(new Date('2026-06-01'));
+console.log(`Steps: ${summary.totalSteps}`);
+console.log(`Resting HR: ${summary.restingHeartRate}`);
+console.log(
+    `Stress avg/max: ${summary.averageStressLevel}/${summary.maxStressLevel}`
+);
+console.log(
+    `Body Battery high/low: ${summary.bodyBatteryHighestValue}/${summary.bodyBatteryLowestValue}`
+);
+```
+
+### `getDailyHrv(date?: Date): Promise<DailyHrvSummary>`
+
+Retrieves the daily HRV summary for a specific date from the HRV daily endpoint.
+
+#### Parameters:
+
+-   `date` (Date, optional): Date of the requested information. Defaults to the current date.
+
+#### Returns:
+
+-   `Promise<DailyHrvSummary>`: A Promise that resolves to the HRV summary for the selected day.
+
+#### Example:
+
+```js
+const hrv = await GCClient.getDailyHrv(new Date('2026-06-01'));
+console.log(`Status: ${hrv.status}`);
+console.log(`Weekly avg: ${hrv.weeklyAvg}`);
+console.log(`Last night avg: ${hrv.lastNightAvg}`);
+```
+
 ### Example: Fetch Health Data
 
 See [examples/fetch_health_data.js](examples/fetch_health_data.js) for a complete example that fetches weight and heart rate data:
